@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
-import { PLANETS, SUN_RADIUS, DISTANCE_SCALE, GALACTIC_SPEED, TILT_DEGREES, MAX_TRAIL_POINTS } from "@/lib/solarData";
+import { PLANETS, SUN_RADIUS, DISTANCE_SCALE, GALACTIC_SPEED, TILT_DEGREES } from "@/lib/solarData";
 
 const DEG2RAD = Math.PI / 180;
 const TILT = TILT_DEGREES * DEG2RAD;
