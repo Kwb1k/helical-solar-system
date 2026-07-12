@@ -3,7 +3,6 @@
 import React, { Suspense, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { PLANETS, SUN_RADIUS, DISTANCE_SCALE, GALACTIC_SPEED, TILT_DEGREES, MAX_TRAIL_POINTS } from "@/lib/solarData";
 
@@ -209,15 +208,16 @@ function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
       {/* Star field */}
       <Stars radius={380} depth={60} count={6500} factor={2.8} saturation={0} fade speed={0.4} />
 
-      {/* Bloom on the Sun */}
-      <EffectComposer>
+      {/* Sun glow - Bloom temporarily disabled for build compatibility with fiber v9.
+         Will restore with a compatible setup or custom effect. */}
+      {/* <EffectComposer>
         <Bloom
           luminanceThreshold={0.15}
           luminanceSmoothing={0.85}
           height={256}
           intensity={1.35}
         />
-      </EffectComposer>
+      </EffectComposer> */}
 
       <OrbitControls
         ref={controlsRef}
