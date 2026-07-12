@@ -138,16 +138,23 @@ function SimpleHelixTrail({
 
 function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
   const sunZRef = React.useRef(0);
+  const controlsRef = React.useRef<any>(null);
   const { camera } = useThree();
 
-  // Follow the Sun so the system stays nicely in frame while trails show history
+  // Follow the Sun using controls.target for smooth interaction with OrbitControls
   useFrame(() => {
     const sunZ = simTime.current * GALACTIC_SPEED;
     sunZRef.current = sunZ;
 
     const targetZ = sunZ;
+
+    if (controlsRef.current) {
+      controlsRef.current.target.set(0, 3.5, targetZ - 5);
+      controlsRef.current.update();
+    }
+
+    // Keep camera at a nice offset
     camera.position.z = targetZ + 32;
-    camera.lookAt(0, 3.5, targetZ - 5);
   });
 
   // Example trails for Earth and Jupiter to immediately show helices
@@ -213,6 +220,7 @@ function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
       </EffectComposer>
 
       <OrbitControls
+        ref={controlsRef}
         enablePan
         enableZoom
         enableRotate
