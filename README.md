@@ -31,14 +31,15 @@ bun dev
 
 **Note:** If you run into certificate/SSL errors with npm/bun on this machine, the project is set up so that Vercel builds will succeed cleanly. Fix your local CA / strict-ssl when convenient.
 
-## Project goals (current phase)
+## Current Status (MVP achieved)
 
-1. Accurate helical motion (Sun travels, planets orbit the moving Sun)
-2. Photoreal planet textures
-3. Beautiful trails that reveal the spirals
-4. Excellent camera controls + time scrubbing
-5. Desktop + mobile friendly
-6. Clean, minimal UI
+- Accurate relative periods + galactic motion + ~60° tilt → real helices
+- Live colored trails clearly showing the spiral paths
+- Controllable simulation speed + reset
+- Follow camera + full OrbitControls (mouse + touch)
+- Bloom + stars foundation
+
+Next: photoreal textures, Saturn rings, more moons, asteroid belt, planet info panels, camera presets, full mobile polish, then Vercel preview.
 
 ## Deploy
 
