@@ -129,9 +129,9 @@ function SimpleHelixTrail({
   }, []);
 
   return (
-    <line ref={lineRef} geometry={geom}>
+    <line_ ref={lineRef as any} geometry={geom}>
       <lineBasicMaterial color={color} transparent opacity={0.75} />
-    </line>
+    </line_>
   );
 }
 
