@@ -122,17 +122,15 @@ function SimpleHelixTrail({
     }
   });
 
-  const geom = React.useMemo(() => {
+  const lineObject = React.useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(positions.current, 3));
-    return g;
-  }, []);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.75 });
+    const l = new THREE.Line(g, mat);
+    return l;
+  }, [color]);
 
-  return (
-    <line_ ref={lineRef as any} geometry={geom}>
-      <lineBasicMaterial color={color} transparent opacity={0.75} />
-    </line_>
-  );
+  return <primitive object={lineObject} ref={lineRef} />;
 }
 
 function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
