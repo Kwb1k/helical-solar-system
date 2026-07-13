@@ -86,10 +86,18 @@ function Planet({ data, simTime, sunZRef }: PlanetProps) {
   const e = data.e;
   const inclRad = data.incl * DEG2RAD;
 
-  // Load texture if declared (put files in public/textures/ like earth.jpg)
-  const texture = data.texture 
-    ? useLoader(THREE.TextureLoader, `/textures/${data.texture}.jpg`) 
-    : null;
+  // Optional texture (loaded async so it doesn't crash if file missing)
+  const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+  React.useEffect(() => {
+    if (!data.texture) return;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      `/textures/${data.texture}.jpg`,
+      (tex) => setTexture(tex),
+      undefined,
+      () => {} // ignore missing file errors
+    );
+  }, [data.texture]);
 
   useFrame((state, delta) => {
     const t = simTime.current;
@@ -115,8 +123,8 @@ function Planet({ data, simTime, sunZRef }: PlanetProps) {
         <meshStandardMaterial 
           color={data.color} 
           map={texture || undefined}
-          metalness={0.1}
-          roughness={0.85}
+          metalness={0.05}
+          roughness={0.9}
         />
       </mesh>
 
