@@ -84,9 +84,9 @@ export default function HelicalSolarSystemPage() {
       <div className="absolute bottom-20 left-6 z-20 max-w-sm pointer-events-none">
         <div className="ui-overlay">
           <div className="controls rounded-2xl p-4 text-sm text-white/80 pointer-events-auto">
-            The Sun moves through the galaxy. Planets orbit it, tracing beautiful helices (see the colored trails).
+            The Sun moves through the galaxy. Planets orbit it, tracing beautiful helices (colored trails). Sun glow, rings, moons &amp; asteroid belt added for visual depth.
             <div className="mt-2 text-[10px] text-white/50">
-              Drag to look around • Scroll to zoom • Change speed above
+              Drag to look around • Scroll to zoom • Change speed above • Watch the 3D spirals form
             </div>
           </div>
         </div>

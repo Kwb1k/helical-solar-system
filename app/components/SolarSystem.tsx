@@ -1,10 +1,10 @@
 "use client";
 
 import React, { Suspense, useRef, useMemo } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
 import * as THREE from "three";
-import { PLANETS, SUN_RADIUS, DISTANCE_SCALE, GALACTIC_SPEED, TILT_DEGREES } from "@/lib/solarData";
+import { PLANETS, SUN_RADIUS, DISTANCE_SCALE, GALACTIC_SPEED, TILT_DEGREES, type PlanetData } from "@/lib/solarData";
 
 const DEG2RAD = Math.PI / 180;
 const TILT = TILT_DEGREES * DEG2RAD;
@@ -43,6 +43,34 @@ function Sun() {
   );
 }
 
+// Cheap but effective glow for the Sun (no postprocessing needed)
+function SunGlow() {
+  return (
+    <>
+      {/* Core bright */}
+      <mesh>
+        <sphereGeometry args={[SUN_RADIUS * 1.1]} />
+        <meshBasicMaterial color="#fff7d0" transparent opacity={0.9} />
+      </mesh>
+      {/* Inner glow */}
+      <mesh>
+        <sphereGeometry args={[SUN_RADIUS * 1.6]} />
+        <meshBasicMaterial color="#ffeb99" transparent opacity={0.35} />
+      </mesh>
+      {/* Outer corona */}
+      <mesh>
+        <sphereGeometry args={[SUN_RADIUS * 2.3]} />
+        <meshBasicMaterial color="#ffcc66" transparent opacity={0.15} />
+      </mesh>
+      {/* Very outer soft halo */}
+      <mesh>
+        <sphereGeometry args={[SUN_RADIUS * 3.2]} />
+        <meshBasicMaterial color="#ffaa33" transparent opacity={0.08} />
+      </mesh>
+    </>
+  );
+}
+
 type PlanetProps = {
   data: (typeof PLANETS)[number];
   simTime: React.MutableRefObject<number>;
@@ -57,6 +85,11 @@ function Planet({ data, simTime, sunZRef }: PlanetProps) {
   const period = data.period;
   const e = data.e;
   const inclRad = data.incl * DEG2RAD;
+
+  // Load texture if declared (put files in public/textures/ like earth.jpg)
+  const texture = data.texture 
+    ? useLoader(THREE.TextureLoader, `/textures/${data.texture}.jpg`) 
+    : null;
 
   useFrame((state, delta) => {
     const t = simTime.current;
@@ -79,13 +112,68 @@ function Planet({ data, simTime, sunZRef }: PlanetProps) {
     <group ref={groupRef}>
       <mesh ref={meshRef}>
         <sphereGeometry args={[data.visualRadius]} />
-        <meshPhongMaterial color={data.color} shininess={28} specular="#222" />
+        <meshStandardMaterial 
+          color={data.color} 
+          map={texture || undefined}
+          metalness={0.1}
+          roughness={0.85}
+        />
+      </mesh>
+
+      {/* Saturn rings - simple flat ring */}
+      {data.hasRings && (
+        <mesh rotation={[Math.PI * 0.48, 0.1, 0]}>
+          <ringGeometry args={[data.visualRadius * 1.6, data.visualRadius * 2.6, 64]} />
+          <meshBasicMaterial
+            color="#f5e8c7"
+            side={THREE.DoubleSide}
+            transparent
+            opacity={0.65}
+          />
+        </mesh>
+      )}
+
+      {/* Simple moons */}
+      {data.moons?.map((moon, idx) => (
+        <Moon
+          key={idx}
+          moon={moon}
+          parentRadius={data.visualRadius}
+          simTime={simTime}
+        />
+      ))}
+    </group>
+  );
+}
+
+function Moon({ moon, parentRadius, simTime }: { 
+  moon: NonNullable<PlanetData['moons']>[number]; 
+  parentRadius: number; 
+  simTime: React.MutableRefObject<number>;
+}) {
+  const moonRef = React.useRef<THREE.Group>(null!);
+
+  useFrame(() => {
+    const t = simTime.current;
+    const angle = (t / moon.period) * Math.PI * 2;
+    const dist = parentRadius * 1.8 + moon.distance;
+    if (moonRef.current) {
+      moonRef.current.position.x = Math.cos(angle) * dist;
+      moonRef.current.position.z = Math.sin(angle) * dist * 0.6; // slight tilt
+    }
+  });
+
+  return (
+    <group ref={moonRef}>
+      <mesh>
+        <sphereGeometry args={[moon.size]} />
+        <meshPhongMaterial color="#cccccc" shininess={10} />
       </mesh>
     </group>
   );
 }
 
-// Lightweight line trail that clearly shows the helical path
+// Lightweight line trail that clearly shows the helical path (with simple fade on older segments)
 function SimpleHelixTrail({
   simTime,
   getWorldPos,
@@ -99,25 +187,46 @@ function SimpleHelixTrail({
 }) {
   const lineRef = React.useRef<THREE.Line>(null!);
   const positions = React.useRef<Float32Array>(new Float32Array(maxPoints * 3));
+  const colors = React.useRef<Float32Array>(new Float32Array(maxPoints * 3));
   const countRef = React.useRef(0);
+
+  // Parse base color once
+  const baseColor = React.useMemo(() => new THREE.Color(color), [color]);
 
   useFrame(() => {
     const t = simTime.current;
     const pos = getWorldPos(t);
 
-    const arr = positions.current;
+    const pArr = positions.current;
+    const cArr = colors.current;
     const idx = (countRef.current % maxPoints) * 3;
 
-    arr[idx + 0] = pos.x;
-    arr[idx + 1] = pos.y;
-    arr[idx + 2] = pos.z;
+    pArr[idx + 0] = pos.x;
+    pArr[idx + 1] = pos.y;
+    pArr[idx + 2] = pos.z;
+
+    // Fade older points (newest = full color, oldest = darker)
+    const age = countRef.current % maxPoints;
+    const fade = 0.35 + (age / maxPoints) * 0.65;
+
+    cArr[idx + 0] = baseColor.r * fade;
+    cArr[idx + 1] = baseColor.g * fade;
+    cArr[idx + 2] = baseColor.b * fade;
 
     countRef.current += 1;
 
     if (lineRef.current) {
       const posAttr = lineRef.current.geometry.attributes.position as THREE.BufferAttribute;
-      posAttr.array = arr;
+      const colAttr = lineRef.current.geometry.attributes.color as THREE.BufferAttribute;
+
+      posAttr.array = pArr;
       posAttr.needsUpdate = true;
+
+      if (colAttr) {
+        colAttr.array = cArr;
+        colAttr.needsUpdate = true;
+      }
+
       lineRef.current.geometry.setDrawRange(0, Math.min(countRef.current, maxPoints));
     }
   });
@@ -125,17 +234,71 @@ function SimpleHelixTrail({
   const lineObject = React.useMemo(() => {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(positions.current, 3));
-    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.75 });
+    g.setAttribute("color", new THREE.BufferAttribute(colors.current, 3));
+    const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8 });
     const l = new THREE.Line(g, mat);
     return l;
-  }, [color]);
+  }, []);
 
   return <primitive object={lineObject} ref={lineRef} />;
+}
+
+function AsteroidBelt({ simTime, sunZRef }: { 
+  simTime: React.MutableRefObject<number>; 
+  sunZRef: React.MutableRefObject<number>; 
+}) {
+  const pointsRef = React.useRef<THREE.Points>(null!);
+  const count = 280;
+  const inner = 3.8 * DISTANCE_SCALE;
+  const outer = 4.8 * DISTANCE_SCALE;
+
+  const positions = React.useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+      const r = inner + Math.random() * (outer - inner);
+      const y = (Math.random() - 0.5) * 0.8;
+      pos[i * 3 + 0] = Math.cos(angle) * r;
+      pos[i * 3 + 1] = y;
+      pos[i * 3 + 2] = Math.sin(angle) * r * 0.7;
+    }
+    return pos;
+  }, []);
+
+  useFrame(() => {
+    const sunZ = sunZRef.current;
+    if (pointsRef.current) {
+      pointsRef.current.position.z = sunZ;
+      // Very slow rotation of the whole belt
+      pointsRef.current.rotation.y = simTime.current * 0.03;
+    }
+  });
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={count}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.08}
+        color="#aaaaaa"
+        sizeAttenuation
+        transparent
+        opacity={0.55}
+      />
+    </points>
+  );
 }
 
 function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
   const sunZRef = React.useRef(0);
   const controlsRef = React.useRef<any>(null);
+  const sunLightRef = React.useRef<THREE.PointLight>(null!);
   const { camera } = useThree();
 
   // Follow the Sun using controls.target for smooth interaction with OrbitControls
@@ -148,6 +311,11 @@ function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 3.5, targetZ - 5);
       controlsRef.current.update();
+    }
+
+    // Dynamic sun light position (so planets are properly lit)
+    if (sunLightRef.current) {
+      sunLightRef.current.position.set(0, 0, sunZ);
     }
 
     // Keep camera at a nice offset
@@ -178,12 +346,19 @@ function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
 
   return (
     <>
-      <ambientLight intensity={0.12} />
-      <pointLight position={[0, 4, 0]} intensity={1.8} color="#fffbeb" />
+      <ambientLight intensity={0.15} />
+      {/* Sun light that follows the moving sun for proper planet illumination */}
+      <pointLight
+        ref={sunLightRef}
+        position={[0, 0, 0]}
+        intensity={2.2}
+        color="#fffbeb"
+      />
 
-      {/* Sun at current galactic position */}
+      {/* Sun + glow at current galactic position */}
       <group position={[0, 0, 0]}>
         <Sun />
+        <SunGlow />
       </group>
 
       {/* Planets */}
@@ -202,6 +377,9 @@ function Scene({ simTime }: { simTime: React.MutableRefObject<number> }) {
         const til = applyOrbitalTilt(orb.x, 0, orb.z, p.incl * DEG2RAD);
         return new THREE.Vector3(til.x, til.y, til.z + t * GALACTIC_SPEED);
       }} color="#9ca3af" maxPoints={260} />
+
+      {/* Asteroid belt for extra visual density between Mars and Jupiter */}
+      <AsteroidBelt simTime={simTime} sunZRef={sunZRef} />
 
       {/* Star field */}
       <Stars radius={380} depth={60} count={6500} factor={2.8} saturation={0} fade speed={0.4} />
